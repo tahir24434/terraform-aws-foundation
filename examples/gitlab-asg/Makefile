@@ -13,7 +13,7 @@ render-tfvars:
 
 ## Use envsubst and project.env to render terraform-tfvars.tpl into terraform.tfvars
 render-ssh-config:
-	@. ./vars.env && envsubst <ssh_config.tpl
+	@. ./vars.env && envsubst <ssh_config.tpl > ssh_config
 
 ## Use ssh-keygen to generate a keypair for SSH
 generate-ssh-key:
@@ -21,8 +21,9 @@ generate-ssh-key:
 
 ## write out a tfvars file for a test deploy
 generate-tfvars:
-	@echo "ssh_pubkey = \"./id_rsa.pub\"" > terraform.tfvars
-	@echo "region = \"us-east-2\"" >> terraform.tfvars
+	@echo "ssh_pubkey = \"./id_rsa.pub\"" >> terraform.tfvars
+	@echo "ssl_arn = " `jl 'get "CertificateArn"' cert.json` >> terraform.tfvars
+##	@echo "region = \"us-east-2\"" >> terraform.tfvars
 
 ## Use cfssl to generate a CA and self-signed server SSL certificate for AWS ELB
 generate-tls-certs:
@@ -40,7 +41,10 @@ install-cfssl:
 
 ## Use AWS cli tools to upload the SSL cert to AWS
 upload-tls-certs:
-	@AWS_DEFAULT_REGION=us-east-1 aws acm import-certificate --certificate file://gitlab.pem --private-key file://gitlab-key.pem --certificate-chain file://ca.pem
+##	@AWS_DEFAULT_REGION=us-east-1 aws acm import-certificate --certificate file://gitlab.pem --private-key file://gitlab-key.pem --certificate-chain file://ca.pem
+	@. ./vars.env && envsubst < cert-upload.tpl > cert-upload.sh
+	@chmod +x ./cert-upload.sh
+	@./cert-upload.sh
 
 ## Use Terraform to create the VPC and core network resources in a specific order
 network:
@@ -76,8 +80,8 @@ destroy:
 ## rm -rf everything
 clean: destroy
 	@rm -rf terraform.tfstate terraform.tfstate.backup .terraform
-	@rm -rf id_rsa id_rsa.pub
-	@rm -rf tf.out terraform.tfvars
+	@rm -rf id_rsa id_rsa.pub ssh_config
+	@rm -rf tf.out terraform.tfvars 
 
 ## Show help screen.
 help:

@@ -16,6 +16,7 @@ Then, we run some make targets:
 ᐅ make install-cfssl
 ᐅ make generate-tls-certs
 ᐅ make upload-tls-certs
+ᐅ make generate-tfvars
 ᐅ make network
 ᐅ make plan
 ᐅ make apply
