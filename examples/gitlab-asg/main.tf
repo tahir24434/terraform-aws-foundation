@@ -55,6 +55,16 @@ variable "gitlab_registry_name" {
   type        = "string"
 }
 
+variable "root_volume_size" {
+  default     = "30"
+  description = "GB of root data volume for the instance, make it larger than usual for docker builds"
+}
+
+variable "registry_bucket_name" {
+  description = "The name of the S3 bucket to write docker images to"
+  type        = "string"
+}
+
 provider "aws" {
   region = "${var.region}"
 }
@@ -69,6 +79,25 @@ module "ubuntu-xenial-ami" {
 resource "aws_key_pair" "main" {
   key_name   = "${var.name}"
   public_key = "${file(var.ssh_pubkey)}"
+}
+
+# S3 bucket for the Docker Registry (running in gitlab) to store Docker Images
+module "docker-registry-s3-storage" {
+  source      = "../../tf-modules/s3-remote-state"
+  bucket_name = "${var.registry_bucket_name}"
+  versioning  = "false"
+  principals  = []
+}
+
+module "docker-registry-s3-full-access" {
+  source       = "../../tf-modules/s3-full-access-policy"
+  name         = "${var.name}-docker-registry-s3-full-access"
+  bucket_names = ["${module.docker-registry-s3-storage.bucket_id}"]
+}
+
+resource "aws_iam_role_policy_attachment" "s3-full-access-attachment" {
+  role       = "${module.gitlab-asg.asg_iam_role_name}"
+  policy_arn = "${module.docker-registry-s3-full-access.arn}"
 }
 
 resource "aws_elb" "gitlab" {
@@ -154,6 +183,7 @@ module "gitlab-asg" {
 
   load_balancers        = ["${aws_elb.gitlab.name}"]
   security_group_ids    = ["${aws_security_group.gitlab.id}"]
+  root_volume_size      = "${var.root_volume_size}"
   data_volume_encrypted = false
 
   init_prefix = <<END_INIT
@@ -171,6 +201,7 @@ echo "LABEL=gitlab            /gitlab  ext4   defaults,nofail     0 2" >> /etc/f
 
 apt-get install -y docker docker.io
 ${module.init-gitlab-docker.init_snippet}
+${module.init-gitlab-runner.init_snippet}
 END_INIT
 }
 
@@ -185,6 +216,21 @@ module "init-install-ops" {
 module "init-gitlab-docker" {
   source        = "../../modules/init-snippet-gitlab-docker"
   gitlab_domain = "${var.dns_zone_name}"
+
+  # write docker images to this S3 bucket (created separate from this env)
+  registry_bucket_name   = "${var.registry_bucket_name}"
+  registry_bucket_region = "${var.region}"
+}
+
+module "init-gitlab-runner" {
+  source = "../../tf-modules/init-snippet-exec"
+
+  init = <<END_INIT
+mkdir /etc/gitlab-runner
+cp /gitlab/gitlab-runner-config.toml /etc/gitlab-runner/config.toml
+curl -L https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh |  bash
+apt-get install -y gitlab-runner
+END_INIT
 }
 
 module "vpc" {
@@ -281,4 +327,14 @@ output "gitlab_url" {
 output "registry_url" {
   value       = "${aws_route53_record.registry.name}"
   description = "URL to docker image registry"
+}
+
+// URL to S3 bucket where Docker images are stored
+output "registry_bucket_url" {
+  value = "${module.docker-registry-s3-storage.url}"
+}
+
+// Name of the S3 bucket where Docker images are stored
+output "registry_bucket_name" {
+  value = "${module.docker-registry-s3-storage.bucket_id}"
 }

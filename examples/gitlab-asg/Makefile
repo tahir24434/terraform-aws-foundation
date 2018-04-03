@@ -5,7 +5,7 @@
 ## Use envsubst and vars.env to render the json config files for cfssl
 render-tls-configs:
 	@. ./vars.env && envsubst <ca-csr.tpl > ca-csr.json
-	@. ./vars.env && envsubst <server-csr.tpl > server-csr.json
+	@. ./vars.env && envsubst <cert-csr.tpl > cert-csr.json
 
 ## Use envsubst and project.env to render terraform-tfvars.tpl into terraform.tfvars
 render-tfvars:
@@ -28,7 +28,7 @@ generate-tfvars:
 ## Use cfssl to generate a CA and self-signed server SSL certificate for AWS ELB
 generate-tls-certs:
 	@./cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
-	@./cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=gitlab server-csr.json | cfssljson -bare gitlab
+	@./cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=cert-config.json -profile=gitlab cert-csr.json | cfssljson -bare gitlab
 	@ls -Alh
 	@echo "ca-key.pem is the file to keep very safe"
 
@@ -69,9 +69,40 @@ apply:
 get-ip:
 	@ops aws ec2 asg ips -r $$(terraform output region) $$(terraform output gitlab_asg_name)
 
+## SSH to the gitlab server and use parted and similar tools to setup a partition and filesystem on the EBS volume (run only once per volume)
+init-ebs-volume:
+	@ssh data-ops-gitlab "sudo parted --script /dev/xvdf -- mklabel msdos && \
+	 sudo parted --script /dev/xvdf -- mkpart primary 0 -1                && \
+	 sudo mkfs -t ext4 -F /dev/xvdf1                                      && \
+	 sudo e2label /dev/xvdf1 gitlab"
+
+## SSH to the gitlab server and create/activate a swap file for the server
+create-activate-swap:
+	@ssh data-ops-gitlab "sudo dd if=/dev/zero of=/var/swap.file bs=1M count=2048 && sudo mkswap /var/swap.file && sudo chmod 600 /var/swap.file && sudo swapon /var/swap.file"
+
+## SSH to the gitlab server and halt the host so it is terminated
+terminate-gitlab-server:
+	@ssh data-ops-gitlab "sudo halt"
+
+## SSH to the gitlab server and register the CI runner with the server
+register-gitlab-runner:
+	@ssh data-ops-gitlab "sudo gitlab-runner register"
+
+## SSH to the gitlab server and cat the runner's config file
+cat-gitlab-runner-config:
+	@ssh data-ops-gitlab "sudo cat /etc/gitlab-runner/config.toml"
+
+## SSH to the gitlab server and copy the runner's config file to the EBS volume
+copy-gitlab-runner-config:
+	@ssh data-ops-gitlab "sudo cp /etc/gitlab-runner/config.toml /gitlab/gitlab-runner-config.toml && ls -Alh /gitlab/"
+
 ## Login to docker registry
 docker-login:
 	@docker login $$(terraform registry_url)
+
+## Use 'ops' tool to purge the docker registry's S3 bucket of all objects
+purge-docker-registry-storage:
+	@ops aws s3 purge $$(terraform output registry_bucket_name) -r $$(terraform output region)
 
 ## Use Terraform to destory all resources in the test env
 destroy:
