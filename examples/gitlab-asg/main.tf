@@ -83,14 +83,14 @@ resource "aws_key_pair" "main" {
 
 # S3 bucket for the Docker Registry (running in gitlab) to store Docker Images
 module "docker-registry-s3-storage" {
-  source      = "../../modules/s3-remote-state"
+  source      = "../../tf-modules/s3-remote-state"
   bucket_name = "${var.registry_bucket_name}"
   versioning  = "false"
   principals  = []
 }
 
 module "docker-registry-s3-full-access" {
-  source       = "../../modules/s3-full-access-policy"
+  source       = "../../tf-modules/s3-full-access-policy"
   name         = "${var.name}-docker-registry-s3-full-access"
   bucket_names = ["${module.docker-registry-s3-storage.bucket_id}"]
 }
@@ -170,12 +170,10 @@ module "elb-open-egress-rule" {
 }
 
 module "gitlab-asg" {
-  source      = "../../modules/single-node-asg"
-  name_prefix = "${var.name}"
-  name_suffix = "gitlab-server"
-  region      = "${var.region}"
-
-  ##  azs           = "${element(data.aws_availability_zones.available.names, 0)}"
+  source        = "../../modules/single-node-asg"
+  name_prefix   = "${var.name}"
+  name_suffix   = "gitlab-server"
+  region        = "${var.region}"
   key_name      = "${aws_key_pair.main.key_name}"
   ami           = "${module.ubuntu-xenial-ami.id}"
   instance_type = "t2.medium"
@@ -195,10 +193,8 @@ END_INIT
   init_suffix = <<END_INIT
 mkdir -p /gitlab
 mount /dev/xvdf1 /gitlab
-
 cp /etc/fstab /etc/fstab.orig
 echo "LABEL=gitlab            /gitlab  ext4   defaults,nofail     0 2" >> /etc/fstab
-
 apt-get install -y docker docker.io
 ${module.init-gitlab-docker.init_snippet}
 ${module.init-gitlab-runner.init_snippet}
@@ -223,7 +219,7 @@ module "init-gitlab-docker" {
 }
 
 module "init-gitlab-runner" {
-  source = "../../modules/init-snippet-exec"
+  source = "../../tf-modules/init-snippet-exec"
 
   init = <<END_INIT
 mkdir /etc/gitlab-runner
