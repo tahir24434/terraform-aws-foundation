@@ -90,19 +90,12 @@ external_url '$${gitlab_url}'; registry_external_url '$${registry_url}'; registr
 EOC
 
   vars = {
-<<<<<<< HEAD:modules/init-snippet-gitlab-docker/main.tf
-    gitlab_url   = "https://${var.gitlab_name}.${var.gitlab_domain}"
-    registry_url = "https://${var.gitlab_registry_name}.${var.gitlab_domain}"
-    ssh_port     = "${var.gitlab_ssh_port}"
-    http_port    = "${var.gitlab_http_port}"
-=======
     gitlab_url             = "https://${var.gitlab_name}.${var.gitlab_domain}"
     registry_url           = "https://${var.gitlab_registry_name}.${var.gitlab_domain}"
     registry_bucket_region = "${var.registry_bucket_region}"
     registry_bucket_name   = "${var.registry_bucket_name}"
     ssh_port               = "${var.gitlab_ssh_port}"
     http_port              = "${var.gitlab_http_port}"
->>>>>>> tests/gitlab-asg:tf-modules/init-snippet-gitlab-docker/main.tf
   }
 }
 
@@ -136,14 +129,6 @@ output "init_snippet" {
 }
 
 output "gitlab_config" {
-<<<<<<< HEAD:modules/init-snippet-gitlab-docker/main.tf
-  value       = {
-    external_url          = "https://${var.gitlab_name}.${var.gitlab_domain}"
-    registry_external_url = "https://${var.gitlab_registry_name}.${var.gitlab_domain}"
-    ssh_port              = "${var.gitlab_ssh_port}"
-    http_port             = "${var.gitlab_http_port}"
-    https_port            = "${var.gitlab_https_port}"
-=======
   value = {
     external_url           = "https://${var.gitlab_name}.${var.gitlab_domain}"
     registry_external_url  = "https://${var.gitlab_registry_name}.${var.gitlab_domain}"
@@ -152,7 +137,7 @@ output "gitlab_config" {
     ssh_port               = "${var.gitlab_ssh_port}"
     http_port              = "${var.gitlab_http_port}"
     https_port             = "${var.gitlab_https_port}"
->>>>>>> tests/gitlab-asg:tf-modules/init-snippet-gitlab-docker/main.tf
   }
+
   description = "connection details about gitlab"
 }

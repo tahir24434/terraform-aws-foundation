@@ -20,6 +20,7 @@ data "template_file" "init_snippet" {
 }
 
 output "init_snippet" {
-  value       = "${data.template_file.init_snippet.rendered}"
-  description = 'Rendered "init snippet" from the template file'
+  value = "${data.template_file.init_snippet.rendered}"
+
+  #description = 'Rendered "init snippet" from the template file'
 }

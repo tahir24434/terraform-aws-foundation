@@ -21,3 +21,5 @@ examples/gitlab-asg/cert-upload.sh
 examples/gitlab-asg/cert.json
 examples/gitlab-asg/ssh_config
 examples/gitlab-asg/vars-fp.env
+examples/gitlab-asg/cert-csr.json
+.vscode/
